@@ -97,6 +97,13 @@ export async function updateCallerStats(callerId: string) {
     where: { callerId },
   })
 
+  const noShowCount = await prisma.appointment.count({
+    where: { callerId, status: 'NO_SHOW' },
+  })
+
+  const showUpEligible = totalAppointments + noShowCount
+  const showUpRate = showUpEligible > 0 ? totalAppointments / showUpEligible : 0
+
   const conversionRate = totalLeadsWorked > 0 ? totalAppointments / totalLeadsWorked : 0
   const disputeRate = totalAllAppointments > 0 ? disputeCount / totalAllAppointments : 0
 
@@ -116,6 +123,7 @@ export async function updateCallerStats(callerId: string) {
       totalLeadsWorked,
       totalAppointments,
       conversionRate,
+      showUpRate,
       avgRating: ratings._avg.score || 0,
       totalEarnings: earnings._sum.callerPayout || 0,
       disputeRate,

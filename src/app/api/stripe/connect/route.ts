@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { createConnectedAccount, createAccountLink } from '@/lib/stripe'
+import { createConnectedAccount, createAccountLink, createCustomer } from '@/lib/stripe'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +23,17 @@ export async function POST(req: NextRequest) {
     if (role === 'BUSINESS') {
       const business = await prisma.business.findUnique({ where: { userId } })
       if (business?.stripeAccountId) {
+        // Ensure business also has a Stripe Customer for payments
+        if (!business.stripeCustomerId) {
+          const customer = await createCustomer(email, business.companyName, {
+            businessId: business.id,
+            userId,
+          })
+          await prisma.business.update({
+            where: { id: business.id },
+            data: { stripeCustomerId: customer.id },
+          })
+        }
         // Generate new onboarding link for existing account
         const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`
         const accountLink = await createAccountLink(business.stripeAccountId, returnUrl)
@@ -42,11 +53,19 @@ export async function POST(req: NextRequest) {
     const type = role === 'BUSINESS' ? 'business' : 'caller'
     const account = await createConnectedAccount(email, type as 'business' | 'caller')
 
-    // Save Stripe account ID
+    // Save Stripe account ID + create Customer for businesses
     if (role === 'BUSINESS') {
+      const business = await prisma.business.findUnique({ where: { userId } })
+      const customer = await createCustomer(email, business?.companyName || '', {
+        businessId: business?.id || '',
+        userId,
+      })
       await prisma.business.update({
         where: { userId },
-        data: { stripeAccountId: account.id },
+        data: {
+          stripeAccountId: account.id,
+          stripeCustomerId: customer.id,
+        },
       })
     } else {
       await prisma.caller.update({

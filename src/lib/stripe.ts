@@ -79,6 +79,15 @@ export async function transferToCaller(
   return transfer
 }
 
+export async function createCustomer(email: string, name: string, metadata: Record<string, string>) {
+  const customer = await stripe.customers.create({
+    email,
+    name,
+    metadata: { ...metadata, platform: 'closeflow' },
+  })
+  return customer
+}
+
 export async function getAccountStatus(accountId: string) {
   const account = await stripe.accounts.retrieve(accountId)
   return {

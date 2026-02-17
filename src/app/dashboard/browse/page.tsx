@@ -22,7 +22,7 @@ export default function BrowsePage() {
       const res = await fetch('/api/caller/request-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId, leadIds: [] }),
+        body: JSON.stringify({ businessId }),
       })
       const data = await res.json()
       if (!res.ok) {

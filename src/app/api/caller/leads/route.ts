@@ -22,8 +22,18 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '25')))
 
+    // Exclude leads from businesses that have blocked this caller
+    const blockedByBusinesses = await prisma.blockedCaller.findMany({
+      where: { callerId },
+      select: { businessId: true },
+    })
+    const blockedBusinessIds = blockedByBusinesses.map((b) => b.businessId)
+
     const where: any = {
       callerId,
+      ...(blockedBusinessIds.length > 0 && {
+        lead: { business: { id: { notIn: blockedBusinessIds } } },
+      }),
     }
 
     if (status) {

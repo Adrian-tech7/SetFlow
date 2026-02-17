@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
       data: { status: 'DISPUTED' },
     })
 
+    // Increment business dispute count
+    await prisma.business.update({
+      where: { id: businessId },
+      data: { disputeCount: { increment: 1 } },
+    })
+
     return NextResponse.json({ dispute }, { status: 201 })
   } catch (error: any) {
     if (error.name === 'ZodError') {
