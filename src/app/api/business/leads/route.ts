@@ -11,25 +11,46 @@ export async function GET(req: NextRequest) {
     }
 
     const businessId = (session.user as any).businessId
+    if (!businessId) {
+      return NextResponse.json({ error: 'Business profile not found' }, { status: 404 })
+    }
+
     const { searchParams } = new URL(req.url)
+    const poolId = searchParams.get('poolId')
     const status = searchParams.get('status')
+    const search = searchParams.get('search')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const limit = parseInt(searchParams.get('limit') || '25')
 
     const where: any = { businessId }
+    if (poolId) where.leadPoolId = poolId
     if (status) where.status = status
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+      ]
+    }
 
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
         where,
         include: {
           assignments: {
-            where: { isActive: true },
             include: {
               caller: {
-                select: { id: true, displayName: true, tier: true },
+                select: {
+                  id: true,
+                  displayName: true,
+                  tier: true,
+                  avgRating: true,
+                },
               },
             },
+          },
+          leadPool: {
+            select: { id: true, name: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -40,10 +61,7 @@ export async function GET(req: NextRequest) {
     ])
 
     return NextResponse.json({
-      leads: leads.map((lead) => ({
-        ...lead,
-        assignedTo: lead.assignments[0]?.caller || null,
-      })),
+      leads,
       pagination: {
         page,
         limit,

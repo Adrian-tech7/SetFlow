@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { parse } from 'csv-parse/sync'
 import { leadUploadSchema } from '@/lib/validations'
-import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,8 +19,23 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData()
     const file = formData.get('file') as File
+    const poolId = formData.get('poolId') as string
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    if (!poolId) {
+      return NextResponse.json({ error: 'Pool ID is required' }, { status: 400 })
+    }
+
+    // Verify the pool belongs to this business
+    const pool = await prisma.leadPool.findFirst({
+      where: { id: poolId, businessId },
+    })
+
+    if (!pool) {
+      return NextResponse.json({ error: 'Lead pool not found' }, { status: 404 })
     }
 
     const text = await file.text()
@@ -31,69 +45,67 @@ export async function POST(req: NextRequest) {
       trim: true,
     })
 
-    const batchId = randomUUID()
-    const leads = []
-    const errors = []
+    const leads: any[] = []
+    const errors: { row: number; message: string }[] = []
 
     for (let i = 0; i < records.length; i++) {
       const record = records[i]
-      // Map common CSV column names
+
+      // Flexible column mapping
       const mapped = {
-        firstName: record.firstName || record.first_name || record['First Name'] || '',
-        lastName: record.lastName || record.last_name || record['Last Name'] || '',
-        email: record.email || record.Email || '',
-        phone: record.phone || record.Phone || record.phone_number || '',
-        company: record.company || record.Company || record.organization || '',
-        title: record.title || record.Title || record.job_title || '',
-        source: record.source || record.Source || '',
-        notes: record.notes || record.Notes || '',
+        name: record.Name || record.name || record['Full Name'] || record.full_name || '',
+        email: record.Email || record.email || record.EMAIL || '',
+        phone: record.Phone || record.phone || record.PHONE || record.phone_number || '',
+        company: record.Company || record.company || record.COMPANY || record.organization || '',
+        industry: record.Industry || record.industry || '',
+        source: record.Source || record.source || '',
+        notes: record.Notes || record.notes || '',
       }
 
-      try {
-        const validated = leadUploadSchema.parse(mapped)
-        leads.push({
-          ...validated,
-          businessId,
-          batchId,
-          email: validated.email || null,
-          phone: validated.phone || null,
-          company: validated.company || null,
-          title: validated.title || null,
-          source: validated.source || null,
-          notes: validated.notes || null,
-        })
-      } catch {
-        errors.push({ row: i + 2, data: record })
+      const result = leadUploadSchema.safeParse(mapped)
+
+      if (!result.success) {
+        const messages = result.error.errors.map((e) => e.message).join(', ')
+        errors.push({ row: i + 2, message: messages })
+        continue
       }
+
+      leads.push({
+        businessId,
+        leadPoolId: poolId,
+        name: result.data.name,
+        email: result.data.email,
+        phone: result.data.phone,
+        company: result.data.company,
+        industry: result.data.industry || null,
+        source: result.data.source || null,
+        notes: result.data.notes || null,
+        status: 'AVAILABLE',
+      })
     }
 
     if (leads.length === 0) {
       return NextResponse.json(
-        { error: 'No valid leads found in CSV', errors },
+        { error: 'No valid leads found in CSV', errors, imported: 0, total: records.length },
         { status: 400 }
       )
     }
 
     const created = await prisma.lead.createMany({ data: leads })
 
-    // Update business lead count
+    // Increment business totalLeadsUploaded
     await prisma.business.update({
       where: { id: businessId },
       data: { totalLeadsUploaded: { increment: created.count } },
     })
 
     return NextResponse.json({
-      success: true,
       imported: created.count,
-      failed: errors.length,
-      batchId,
-      errors: errors.slice(0, 10), // Show first 10 errors
+      errors: errors.slice(0, 50),
+      total: records.length,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Lead upload error:', error)
-    return NextResponse.json(
-      { error: 'Failed to upload leads' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to upload leads' }, { status: 500 })
   }
 }

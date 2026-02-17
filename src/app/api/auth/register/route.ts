@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
-import { registerSchema } from '@/lib/validations'
+import {
+  registerBusinessSchema,
+  registerCallerSchema,
+} from '@/lib/validations'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const data = registerSchema.parse(body)
+    const { role } = body
 
-    // Check if user exists
+    if (!role || !['BUSINESS', 'CALLER'].includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role. Must be BUSINESS or CALLER.' },
+        { status: 400 }
+      )
+    }
+
+    // Validate based on role
+    const data =
+      role === 'BUSINESS'
+        ? registerBusinessSchema.parse(body)
+        : registerCallerSchema.parse(body)
+
+    const email = data.email.toLowerCase()
+
+    // Check for existing user
     const existing = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email },
     })
     if (existing) {
       return NextResponse.json(
@@ -21,41 +39,82 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(data.password, 12)
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        name: data.name,
-        role: data.role,
-        ...(data.role === 'BUSINESS'
-          ? {
-              business: {
-                create: {
-                  companyName: data.companyName || data.name,
-                  industry: data.industry,
-                },
+    if (role === 'BUSINESS') {
+      const bizData = data as typeof registerBusinessSchema._output
+      const emailDomain = email.split('@')[1]
+
+      const user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            email,
+            passwordHash,
+            name: bizData.name,
+            role: 'BUSINESS',
+            business: {
+              create: {
+                companyName: bizData.companyName,
+                industry: bizData.industry as any,
+                emailDomain,
+                bookingLink: bizData.bookingLink,
+                defaultPayoutAmount: bizData.defaultPayoutAmount,
               },
-            }
-          : {
-              caller: {
-                create: {
-                  displayName: data.displayName || data.name,
-                  bio: data.bio,
-                },
-              },
-            }),
-      },
-      include: { business: true, caller: true },
+            },
+          },
+          include: { business: true },
+        })
+        return newUser
+      })
+
+      return NextResponse.json(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          businessId: user.business?.id,
+        },
+        { status: 201 }
+      )
+    }
+
+    // CALLER registration
+    const callerData = data as typeof registerCallerSchema._output
+
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          name: callerData.name,
+          role: 'CALLER',
+          caller: {
+            create: {
+              displayName: callerData.displayName,
+              bio: callerData.bio || null,
+              location: callerData.location || null,
+              timezone: callerData.timezone || null,
+              salesExperience: callerData.salesExperience || null,
+              nicheExpertise: callerData.nicheExpertise || [],
+              acceptedTerms: callerData.acceptedTerms,
+              coolingPeriodEnds: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            },
+          },
+        },
+        include: { caller: true },
+      })
+      return newUser
     })
 
-    return NextResponse.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      businessId: user.business?.id,
-      callerId: user.caller?.id,
-    }, { status: 201 })
+    return NextResponse.json(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        callerId: user.caller?.id,
+      },
+      { status: 201 }
+    )
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return NextResponse.json(

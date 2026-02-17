@@ -1,4 +1,4 @@
-import { UserRole, Tier } from '@prisma/client'
+import { UserRole, Tier, AccountStatus } from '@prisma/client'
 
 export interface SessionUser {
   id: string
@@ -7,6 +7,7 @@ export interface SessionUser {
   role: UserRole
   businessId: string | null
   callerId: string | null
+  accountStatus: AccountStatus
 }
 
 export interface DashboardStats {
@@ -15,56 +16,106 @@ export interface DashboardStats {
   totalAppointments: number
   verifiedAppointments: number
   totalEarnings: number
+  totalSpent: number
   pendingPayments: number
   avgRating: number
-  successRate: number
-}
-
-export interface LeadWithAssignment {
-  id: string
-  firstName: string
-  lastName: string
-  email: string | null
-  phone: string | null
-  company: string | null
-  title: string | null
-  status: string
-  assignedTo?: {
-    id: string
-    displayName: string
-    tier: Tier
-  }
-}
-
-export interface AppointmentWithDetails {
-  id: string
-  leadFirstName: string
-  leadLastName: string
-  scheduledAt: string
-  status: string
+  conversionRate: number
+  activeCallers: number
+  activePools: number
   tier: Tier
-  businessCharge: number
-  callerPayout: number
+  stripeOnboarded: boolean
+}
+
+export interface LeadPoolView {
+  id: string
+  name: string
+  industry: string
+  description: string | null
+  payoutAmount: number
+  status: string
+  leadCount: number
+  activeCallers: number
+  maxCallers: number
+  tags: string[]
+  createdAt: string
   business: {
+    id: string
     companyName: string
-  }
-  caller: {
-    displayName: string
-  }
-  payment?: {
-    status: string
+    avgRating: number
+    bookingLink: string | null
   }
 }
 
 export interface CallerProfile {
   id: string
+  userId: string
   displayName: string
   bio: string | null
-  specialties: string[]
-  experienceYears: number
+  location: string | null
+  timezone: string | null
+  salesExperience: string | null
+  nicheExpertise: string[]
   tier: Tier
-  totalAppointmentsSet: number
-  successRate: number
+  totalLeadsWorked: number
+  totalAppointments: number
+  conversionRate: number
   avgRating: number
-  isVerified: boolean
+  totalEarnings: number
+  disputeRate: number
+  showUpRate: number
+  stripeOnboarded: boolean
+}
+
+export interface AppointmentView {
+  id: string
+  scheduledAt: string
+  status: string
+  callerTier: Tier
+  payoutAmount: number
+  platformFee: number
+  totalCharge: number
+  notes: string | null
+  createdAt: string
+  lead: {
+    name: string
+    company: string
+    email: string
+  }
+  business: {
+    id: string
+    companyName: string
+  }
+  caller: {
+    id: string
+    displayName: string
+    tier: Tier
+  }
+  payment?: {
+    status: string
+    paidAt: string | null
+  }
+  rating?: {
+    score: number
+    review: string | null
+  }
+}
+
+export interface NotificationView {
+  id: string
+  type: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  data: any
+}
+
+export interface LeaderboardEntry {
+  callerId: string
+  displayName: string
+  tier: Tier
+  totalAppointments: number
+  conversionRate: number
+  avgRating: number
+  totalEarnings: number
 }

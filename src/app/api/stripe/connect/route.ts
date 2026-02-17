@@ -15,8 +15,32 @@ export async function POST(req: NextRequest) {
     const userId = (session.user as any).id
     const email = session.user.email!
 
+    if (role !== 'BUSINESS' && role !== 'CALLER') {
+      return NextResponse.json({ error: 'Only businesses and callers can connect Stripe' }, { status: 403 })
+    }
+
+    // Check if already has a Stripe account
+    if (role === 'BUSINESS') {
+      const business = await prisma.business.findUnique({ where: { userId } })
+      if (business?.stripeAccountId) {
+        // Generate new onboarding link for existing account
+        const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`
+        const accountLink = await createAccountLink(business.stripeAccountId, returnUrl)
+        return NextResponse.json({ url: accountLink.url })
+      }
+    } else {
+      const caller = await prisma.caller.findUnique({ where: { userId } })
+      if (caller?.stripeAccountId) {
+        // Generate new onboarding link for existing account
+        const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`
+        const accountLink = await createAccountLink(caller.stripeAccountId, returnUrl)
+        return NextResponse.json({ url: accountLink.url })
+      }
+    }
+
+    // Create connected account
     const type = role === 'BUSINESS' ? 'business' : 'caller'
-    const account = await createConnectedAccount(email, type)
+    const account = await createConnectedAccount(email, type as 'business' | 'caller')
 
     // Save Stripe account ID
     if (role === 'BUSINESS') {
@@ -31,6 +55,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Generate onboarding link
     const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings`
     const accountLink = await createAccountLink(account.id, returnUrl)
 

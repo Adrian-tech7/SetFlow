@@ -14,8 +14,8 @@ export default function TierBadge({ tier, size = 'md' }: TierBadgeProps) {
   }
 
   return (
-    <span className={`badge ${config.color} ${sizeClasses[size]}`}>
-      {config.badge} {config.label}
+    <span className={`badge ${config.color} ${sizeClasses[size]} font-semibold`}>
+      {config.label}
     </span>
   )
 }

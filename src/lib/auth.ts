@@ -17,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.toLowerCase() },
           include: { business: true, caller: true },
         })
 
@@ -25,10 +25,19 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials')
         }
 
+        if (user.accountStatus === 'SUSPENDED') {
+          throw new Error('Account suspended. Contact support.')
+        }
+
         const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!isValid) {
           throw new Error('Invalid credentials')
         }
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        })
 
         return {
           id: user.id,
@@ -37,6 +46,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           businessId: user.business?.id || null,
           callerId: user.caller?.id || null,
+          accountStatus: user.accountStatus,
         }
       },
     }),
@@ -47,6 +57,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.businessId = (user as any).businessId
         token.callerId = (user as any).callerId
+        token.accountStatus = (user as any).accountStatus
       }
       return token
     },
@@ -56,6 +67,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).role = token.role
         ;(session.user as any).businessId = token.businessId
         ;(session.user as any).callerId = token.callerId
+        ;(session.user as any).accountStatus = token.accountStatus
       }
       return session
     },
@@ -66,7 +78,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

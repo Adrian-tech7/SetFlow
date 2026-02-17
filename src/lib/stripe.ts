@@ -17,7 +17,7 @@ export async function createConnectedAccount(email: string, type: 'business' | '
       transfers: { requested: true },
       ...(type === 'business' ? { card_payments: { requested: true } } : {}),
     },
-    metadata: { platform: 'setflow', accountType: type },
+    metadata: { platform: 'closeflow', accountType: type },
   })
   return account
 }
@@ -32,38 +32,46 @@ export async function createAccountLink(accountId: string, returnUrl: string) {
   return accountLink
 }
 
-export async function createPaymentIntent(
-  amount: number,
+export async function chargeBusinessAndPayCaller(
   businessStripeId: string,
   callerStripeId: string,
+  totalCharge: number,
   callerPayout: number,
   metadata: Record<string, string>
 ) {
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(amount * 100), // cents
+    amount: Math.round(totalCharge * 100),
     currency: 'usd',
-    transfer_data: {
-      destination: businessStripeId,
-    },
+    customer: businessStripeId,
     metadata: {
       ...metadata,
-      callerStripeId,
-      callerPayout: String(callerPayout),
+      platform: 'closeflow',
     },
+    automatic_payment_methods: { enabled: true },
   })
+
   return paymentIntent
 }
 
-export async function transferToConnectedAccount(
+export async function transferToCaller(
   amount: number,
-  destinationAccountId: string,
+  callerStripeId: string,
   metadata: Record<string, string>
 ) {
   const transfer = await stripe.transfers.create({
     amount: Math.round(amount * 100),
     currency: 'usd',
-    destination: destinationAccountId,
+    destination: callerStripeId,
     metadata,
   })
   return transfer
+}
+
+export async function getAccountStatus(accountId: string) {
+  const account = await stripe.accounts.retrieve(accountId)
+  return {
+    chargesEnabled: account.charges_enabled,
+    payoutsEnabled: account.payouts_enabled,
+    detailsSubmitted: account.details_submitted,
+  }
 }

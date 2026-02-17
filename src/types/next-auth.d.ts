@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client'
+import { UserRole, AccountStatus } from '@prisma/client'
 import 'next-auth'
 
 declare module 'next-auth' {
@@ -6,6 +6,7 @@ declare module 'next-auth' {
     role: UserRole
     businessId: string | null
     callerId: string | null
+    accountStatus: AccountStatus
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module 'next-auth' {
       role: UserRole
       businessId: string | null
       callerId: string | null
+      accountStatus: AccountStatus
     }
   }
 }
@@ -25,5 +27,6 @@ declare module 'next-auth/jwt' {
     role: UserRole
     businessId: string | null
     callerId: string | null
+    accountStatus: AccountStatus
   }
 }
