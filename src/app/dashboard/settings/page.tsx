@@ -9,13 +9,24 @@ export default function SettingsPage() {
   const role = (session?.user as any)?.role
   const [connecting, setConnecting] = useState(false)
   const [stats, setStats] = useState<any>(null)
+  const [bookingLink, setBookingLink] = useState('')
+  const [savingLink, setSavingLink] = useState(false)
 
   useEffect(() => {
     fetch('/api/dashboard/stats')
       .then((r) => r.json())
       .then(setStats)
       .catch(console.error)
-  }, [])
+
+    if (role === 'BUSINESS') {
+      fetch('/api/business/settings')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.bookingLink) setBookingLink(data.bookingLink)
+        })
+        .catch(console.error)
+    }
+  }, [role])
 
   const connectStripe = async () => {
     setConnecting(true)
@@ -32,6 +43,41 @@ export default function SettingsPage() {
     } finally {
       setConnecting(false)
     }
+  }
+
+  const saveBookingLink = async () => {
+    if (!bookingLink) {
+      toast.error('Please enter a booking link')
+      return
+    }
+
+    setSavingLink(true)
+    try {
+      const res = await fetch('/api/business/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingLink }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Booking link saved')
+      } else {
+        toast.error(data.error || 'Failed to save')
+      }
+    } catch {
+      toast.error('Failed to save booking link')
+    } finally {
+      setSavingLink(false)
+    }
+  }
+
+  const webhookUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/webhooks/booking`
+    : ''
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookUrl)
+    toast.success('Copied to clipboard')
   }
 
   return (
@@ -107,9 +153,49 @@ export default function SettingsPage() {
               type="url"
               className="input"
               placeholder="https://calendly.com/your-link"
-              defaultValue=""
+              value={bookingLink}
+              onChange={(e) => setBookingLink(e.target.value)}
             />
-            <button className="btn-primary mt-4 text-sm">Save Booking Link</button>
+            <button
+              onClick={saveBookingLink}
+              disabled={savingLink}
+              className="btn-primary mt-4 text-sm"
+            >
+              {savingLink ? 'Saving...' : 'Save Booking Link'}
+            </button>
+          </div>
+        )}
+
+        {/* Webhook URL (Business only) */}
+        {role === 'BUSINESS' && (
+          <div className="card">
+            <h2 className="text-lg font-semibold text-surface-900 mb-4">Webhook Integration</h2>
+            <p className="text-surface-500 text-sm mb-4">
+              Add this webhook URL to your scheduling tool (Calendly, Cal.com, etc.) so SetFlow automatically detects when appointments are booked and processes payments.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                className="input flex-1 font-mono text-sm"
+                value={webhookUrl}
+                readOnly
+              />
+              <button
+                onClick={copyWebhookUrl}
+                className="btn-primary text-sm whitespace-nowrap"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="mt-4 p-4 bg-surface-50 rounded-xl">
+              <p className="text-sm font-medium text-surface-700 mb-2">Setup Instructions:</p>
+              <ol className="text-sm text-surface-500 space-y-1 list-decimal list-inside">
+                <li>Go to your scheduling tool&apos;s webhook/integration settings</li>
+                <li>Add a new webhook and paste the URL above</li>
+                <li>Subscribe to &quot;booking created&quot; or &quot;invitee created&quot; events</li>
+                <li>Save — SetFlow will now auto-verify appointments and process payments</li>
+              </ol>
+            </div>
           </div>
         )}
       </div>
