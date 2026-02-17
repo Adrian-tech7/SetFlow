@@ -39,7 +39,7 @@ export default function EarningsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard label="Total Earnings" value={formatCurrency(stats?.totalEarnings || 0)} icon="💰" />
         <StatCard label="Verified Appointments" value={stats?.verifiedAppointments || 0} icon="✅" />
-        <StatCard label="Success Rate" value={`${(stats?.successRate || 0).toFixed(1)}%`} icon="📈" />
+        <StatCard label="Conversion Rate" value={`${((stats?.conversionRate || 0) * 100).toFixed(1)}%`} icon="📈" />
       </div>
 
       <h2 className="text-lg font-semibold text-surface-900 mb-4">Verified Appointments</h2>
@@ -54,13 +54,13 @@ export default function EarningsPage() {
           {appointments.map((appt: any) => (
             <div key={appt.id} className="card flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-surface-900">{appt.leadFirstName} {appt.leadLastName}</h3>
+                <h3 className="font-medium text-surface-900">{appt.lead?.name || 'Unknown Lead'}</h3>
                 <p className="text-sm text-surface-500">
                   {appt.business?.companyName} · {formatDateTime(appt.scheduledAt)}
                 </p>
               </div>
               <div className="text-right">
-                <div className="font-bold text-green-600">{formatCurrency(appt.callerPayout)}</div>
+                <div className="font-bold text-green-600">{formatCurrency(appt.payoutAmount)}</div>
                 <StatusBadge status={appt.payment?.status || 'PENDING'} />
               </div>
             </div>

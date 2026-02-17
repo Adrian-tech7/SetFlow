@@ -54,13 +54,13 @@ export default function PaymentsPage() {
           {appointments.map((appt: any) => (
             <div key={appt.id} className="card flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-surface-900">{appt.leadFirstName} {appt.leadLastName}</h3>
+                <h3 className="font-medium text-surface-900">{appt.lead?.name || 'Unknown Lead'}</h3>
                 <p className="text-sm text-surface-500">
                   {appt.caller?.displayName} · {formatDateTime(appt.scheduledAt)}
                 </p>
               </div>
               <div className="text-right">
-                <div className="font-bold text-surface-900">{formatCurrency(appt.businessCharge)}</div>
+                <div className="font-bold text-surface-900">{formatCurrency(appt.totalCharge)}</div>
                 <StatusBadge status={appt.payment?.status || appt.status} />
               </div>
             </div>

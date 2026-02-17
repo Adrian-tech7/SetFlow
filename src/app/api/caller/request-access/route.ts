@@ -39,17 +39,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No available leads found' }, { status: 404 })
     }
 
-    // Create assignments (pending business approval)
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30) // 30-day expiry
-
+    // Create lead assignments for the caller
     const assignments = await prisma.leadAssignment.createMany({
       data: leads.map((lead) => ({
         leadId: lead.id,
         callerId,
-        businessId,
-        expiresAt,
-        isActive: false, // Requires business approval
+        status: 'ASSIGNED' as const,
       })),
       skipDuplicates: true,
     })

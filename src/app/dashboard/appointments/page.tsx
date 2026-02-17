@@ -46,10 +46,10 @@ export default function AppointmentsPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="font-semibold text-surface-900">
-                    {appt.leadFirstName} {appt.leadLastName}
+                    {appt.lead?.name || 'Unknown Lead'}
                   </h3>
                   <StatusBadge status={appt.status} />
-                  <TierBadge tier={appt.tier} size="sm" />
+                  <TierBadge tier={appt.callerTier} size="sm" />
                 </div>
                 <div className="flex items-center gap-4 text-sm text-surface-500">
                   <span>📅 {formatDateTime(appt.scheduledAt)}</span>
@@ -59,7 +59,7 @@ export default function AppointmentsPage() {
               </div>
               <div className="text-right">
                 <div className="text-lg font-bold text-surface-900">
-                  {formatCurrency(role === 'BUSINESS' ? appt.businessCharge : appt.callerPayout)}
+                  {formatCurrency(role === 'BUSINESS' ? appt.totalCharge : appt.payoutAmount)}
                 </div>
                 <div className="text-xs text-surface-500">
                   {role === 'BUSINESS' ? 'charge' : 'payout'}
