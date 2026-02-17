@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
         companyName: true,
         industry: true,
         description: true,
-        tier: true,
         avgRating: true,
+        defaultPayoutAmount: true,
         _count: {
           select: {
             leads: { where: { status: 'AVAILABLE' } },
@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
         companyName: b.companyName,
         industry: b.industry,
         description: b.description,
-        tier: b.tier,
         avgRating: b.avgRating,
+        defaultPayoutAmount: b.defaultPayoutAmount,
         availableLeads: b._count.leads,
       })),
     })

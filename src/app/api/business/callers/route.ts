@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       select: { callerId: true, leadPoolId: true },
     })
 
-    const callerIds = [...new Set(approvedRequests.map((ar) => ar.callerId))]
+    const callerIds = Array.from(new Set(approvedRequests.map((ar) => ar.callerId)))
 
     if (callerIds.length === 0) {
       return NextResponse.json({ callers: [] })

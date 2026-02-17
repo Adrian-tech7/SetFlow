@@ -34,8 +34,10 @@ export async function POST(req: NextRequest) {
       data: {
         appointmentId: data.appointmentId,
         businessId,
+        callerId: appointment.callerId,
         reason: data.reason,
         description: data.description,
+        evidence: data.evidence,
       },
     })
 

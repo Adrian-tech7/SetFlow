@@ -57,12 +57,10 @@ export async function GET() {
         where: {
           callerId,
           status: { in: ['VERIFIED', 'COMPLETED'] },
-          payment: {
-            OR: [
-              { status: { in: ['PENDING', 'PROCESSING'] } },
-              { is: null },
-            ],
-          },
+          OR: [
+            { payment: { is: null } },
+            { payment: { status: { in: ['PENDING', 'PROCESSING'] } } },
+          ],
         },
         _sum: { payoutAmount: true },
       }),

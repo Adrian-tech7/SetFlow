@@ -10,9 +10,9 @@ export default function AccessRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch('/api/business/leads?status=ASSIGNED')
+      const res = await fetch('/api/business/access-requests?status=PENDING')
       const data = await res.json()
-      setRequests(data.leads?.filter((l: any) => l.assignedTo) || [])
+      setRequests(data.accessRequests || [])
     } catch {
       toast.error('Failed to load')
     } finally {
@@ -22,18 +22,18 @@ export default function AccessRequestsPage() {
 
   useEffect(() => { fetchRequests() }, [])
 
-  const handleAction = async (assignmentIds: string[], action: 'approve' | 'deny') => {
+  const handleAction = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      const res = await fetch('/api/business/approve-access', {
-        method: 'POST',
+      const res = await fetch('/api/business/access-requests', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentIds, action }),
+        body: JSON.stringify({ requestId, action }),
       })
       if (!res.ok) {
         toast.error('Action failed')
         return
       }
-      toast.success(action === 'approve' ? 'Access approved!' : 'Access denied')
+      toast.success(action === 'approve' ? 'Access approved!' : 'Access rejected')
       fetchRequests()
     } catch {
       toast.error('Action failed')
@@ -55,31 +55,36 @@ export default function AccessRequestsPage() {
         <EmptyState
           icon="🔑"
           title="No pending requests"
-          description="When callers request access to your leads, they'll appear here."
+          description="When callers request access to your lead pools, they'll appear here."
         />
       ) : (
         <div className="space-y-4">
           {requests.map((req: any) => (
             <div key={req.id} className="card flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-surface-900">{req.assignedTo?.displayName}</h3>
+                <h3 className="font-semibold text-surface-900">{req.caller?.displayName}</h3>
                 <p className="text-sm text-surface-500">
-                  Requesting: {req.firstName} {req.lastName}
-                  {req.company && ` at ${req.company}`}
+                  Pool: {req.leadPool?.name}
+                  {req.message && ` — "${req.message}"`}
                 </p>
+                <div className="flex gap-3 mt-1 text-xs text-surface-400">
+                  {req.caller?.tier && <span>Tier: {req.caller.tier}</span>}
+                  {req.caller?.avgRating > 0 && <span>Rating: {req.caller.avgRating.toFixed(1)}</span>}
+                  {req.caller?.totalAppointments > 0 && <span>{req.caller.totalAppointments} appointments</span>}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleAction([req.id], 'approve')}
+                  onClick={() => handleAction(req.id, 'approve')}
                   className="btn-primary text-sm !py-2 !px-4"
                 >
-                  ✅ Approve
+                  Approve
                 </button>
                 <button
-                  onClick={() => handleAction([req.id], 'deny')}
+                  onClick={() => handleAction(req.id, 'reject')}
                   className="btn-secondary text-sm !py-2 !px-4"
                 >
-                  ❌ Deny
+                  Reject
                 </button>
               </div>
             </div>

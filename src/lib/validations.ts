@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+const IndustryEnum = z.enum([
+  'AI_SERVICES', 'SAAS', 'WEB_DESIGN', 'DIGITAL_MARKETING', 'SOFTWARE_DEV',
+  'CONSULTING', 'AUTOMATION', 'DATA_ANALYTICS', 'CYBERSECURITY', 'CLOUD_SERVICES', 'OTHER',
+])
+
 export const registerBusinessSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -19,7 +24,7 @@ export const registerCallerSchema = z.object({
   location: z.string().optional(),
   timezone: z.string().optional(),
   salesExperience: z.string().optional(),
-  nicheExpertise: z.array(z.string()).optional(),
+  nicheExpertise: z.array(IndustryEnum).optional(),
   acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'You must accept the independent contractor agreement' }) }),
 })
 
@@ -88,6 +93,6 @@ export const callerSettingsSchema = z.object({
   location: z.string().optional(),
   timezone: z.string().optional(),
   salesExperience: z.string().optional(),
-  nicheExpertise: z.array(z.string()).optional(),
+  nicheExpertise: z.array(IndustryEnum).optional(),
   payoutPreference: z.enum(['instant', 'weekly']).optional(),
 })

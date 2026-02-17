@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
           prisma.appointment.count({ where: { businessId, status: 'VERIFIED' } }),
           prisma.payment.aggregate({
             where: { businessId, status: 'COMPLETED' },
-            _sum: { amount: true },
+            _sum: { totalAmount: true },
           }),
         ])
 
@@ -33,9 +33,8 @@ export async function GET(req: NextRequest) {
         availableLeads,
         totalAppointments: appointments,
         verifiedAppointments: verifiedAppts,
-        totalSpent: payments._sum.amount || 0,
+        totalSpent: payments._sum.totalAmount || 0,
         avgRating: business?.avgRating || 0,
-        tier: business?.tier,
         stripeOnboarded: business?.stripeOnboarded,
       })
     }
@@ -44,7 +43,7 @@ export async function GET(req: NextRequest) {
       const [caller, assignments, appointments, verifiedAppts, earnings] =
         await Promise.all([
           prisma.caller.findUnique({ where: { id: callerId } }),
-          prisma.leadAssignment.count({ where: { callerId, isActive: true } }),
+          prisma.leadAssignment.count({ where: { callerId } }),
           prisma.appointment.count({ where: { callerId } }),
           prisma.appointment.count({ where: { callerId, status: 'VERIFIED' } }),
           prisma.payment.aggregate({
@@ -59,7 +58,7 @@ export async function GET(req: NextRequest) {
         verifiedAppointments: verifiedAppts,
         totalEarnings: earnings._sum.callerPayout || 0,
         avgRating: caller?.avgRating || 0,
-        successRate: caller?.successRate || 0,
+        conversionRate: caller?.conversionRate || 0,
         tier: caller?.tier,
         stripeOnboarded: caller?.stripeOnboarded,
       })

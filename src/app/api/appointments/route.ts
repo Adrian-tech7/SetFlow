@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { appointmentSchema } from '@/lib/validations'
-import { TIER_CONFIG } from '@/lib/utils'
+import { TIER_CONFIG, PLATFORM_FEE } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,46 +12,53 @@ export async function POST(req: NextRequest) {
     }
 
     const callerId = (session.user as any).callerId
+    if (!callerId) {
+      return NextResponse.json({ error: 'Caller profile not found' }, { status: 403 })
+    }
+
     const body = await req.json()
-    const data = appointmentSchema.parse(body)
-    const { businessId } = body
+    const { leadId, scheduledAt, notes } = body
 
-    if (!businessId) {
-      return NextResponse.json({ error: 'Business ID required' }, { status: 400 })
+    if (!leadId || !scheduledAt) {
+      return NextResponse.json({ error: 'leadId and scheduledAt are required' }, { status: 400 })
     }
 
-    // Get business tier
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
+    // Get the lead and its business
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { business: true },
     })
-    if (!business) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
 
-    const tierConfig = TIER_CONFIG[business.tier]
+    // Get caller tier
+    const caller = await prisma.caller.findUnique({
+      where: { id: callerId },
+    })
+    if (!caller) {
+      return NextResponse.json({ error: 'Caller not found' }, { status: 404 })
+    }
+
+    const payoutAmount = lead.business.defaultPayoutAmount
+    const totalCharge = payoutAmount + PLATFORM_FEE
 
     const appointment = await prisma.appointment.create({
       data: {
-        businessId,
+        leadId,
+        businessId: lead.businessId,
         callerId,
-        leadFirstName: data.leadFirstName,
-        leadLastName: data.leadLastName,
-        leadEmail: data.leadEmail,
-        leadPhone: data.leadPhone,
-        scheduledAt: new Date(data.scheduledAt),
-        tier: business.tier,
-        businessCharge: tierConfig.businessCharge,
-        callerPayout: tierConfig.callerPayout,
-        platformFee: tierConfig.platformFee,
-        notes: data.notes,
+        scheduledAt: new Date(scheduledAt),
+        callerTier: caller.tier,
+        payoutAmount,
+        platformFee: PLATFORM_FEE,
+        totalCharge,
+        notes,
       },
     })
 
     return NextResponse.json({ appointment }, { status: 201 })
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 })
-    }
     console.error('Create appointment error:', error)
     return NextResponse.json({ error: 'Failed to create appointment' }, { status: 500 })
   }
@@ -71,8 +77,8 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
 
     const where: any = role === 'BUSINESS' ? { businessId } : { callerId }
     if (status) where.status = status
@@ -81,6 +87,7 @@ export async function GET(req: NextRequest) {
       prisma.appointment.findMany({
         where,
         include: {
+          lead: { select: { id: true, name: true, email: true, company: true } },
           business: { select: { companyName: true } },
           caller: { select: { displayName: true } },
           payment: { select: { status: true } },
